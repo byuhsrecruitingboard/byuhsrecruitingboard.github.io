@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BYU Basketball Recruiting Board</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--navy:#002E5D;--navy2:#0a4a8f;--blue:#0062B8;--gold:#ffc857;--bg:#eef1f5;--line:#d8dee8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#1c2733;height:100vh;overflow:hidden}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;background:#fff}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+.hidden{display:none!important}
+#authView{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(160deg,var(--navy) 0%,#001830 100%)}
+.authCard{background:#fff;border-radius:16px;padding:34px 32px;width:380px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.authCard h1{font-size:20px;color:var(--navy);margin-bottom:2px}
+.authCard .sub{color:#67768a;font-size:13px;margin-bottom:20px}
+.authCard label{font-size:12px;font-weight:600;color:#445060;display:block;margin:12px 0 4px}
+.authCard .err{color:#c0392b;font-size:13px;margin-top:12px;min-height:18px}
+.btnPrimary{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:11px;width:100%;font-size:15px;font-weight:600;margin-top:18px}
+.btnPrimary:hover{background:var(--navy2)}
+.authToggle{background:none;border:none;color:var(--blue);font-size:13px;margin-top:14px;width:100%;text-align:center}
+.ylogo{width:46px;height:46px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px;margin-bottom:14px}
+#appView{display:flex;flex-direction:column;height:100vh}
+header{background:var(--navy);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+header .ylogo{width:34px;height:34px;font-size:18px;background:#fff;color:var(--navy);margin:0}
+header h1{font-size:16px;font-weight:700}
+header .sub2{font-size:11px;color:#9fb6d0}
+.tabs{display:flex;gap:4px;margin-left:30px}
+.tab{background:rgba(255,255,255,.08);color:#cfdcec;border:none;border-radius:8px 8px 0 0;padding:9px 16px;font-size:13.5px;font-weight:600;position:relative;top:10px}
+.tab.active{background:var(--bg);color:var(--navy)}
+.spacer{flex:1}
+.userbox{font-size:12.5px;text-align:right;color:#cfdcec}
+.userbox b{display:block;color:#fff}
+.btnGhost{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:7px;padding:7px 12px;font-size:12.5px}
+.btnGhost:hover{background:rgba(255,255,255,.22)}
+#main{flex:1;display:flex;min-height:0}
+#boardWrap{flex:1;overflow:auto;padding:14px}
+#boardBar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+#boardTitle{font-size:15px;font-weight:700;color:var(--navy)}
+#boardHint{font-size:12px;color:#67768a}
+.btnSmall{background:#fff;border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--navy)}
+.btnSmall:hover{border-color:var(--blue);color:var(--blue)}
+#columns{display:grid;grid-template-columns:repeat(5,minmax(195px,1fr));gap:10px;align-items:start;min-width:1000px}
+.col{background:#e4e9f1;border-radius:12px;padding:8px;min-height:300px}
+.colHead{display:flex;align-items:baseline;gap:6px;padding:4px 6px 8px}
+.colHead .pos{font-weight:800;color:var(--navy);font-size:15px}
+.colHead .posName{font-size:11px;color:#67768a}
+.colHead .cnt{margin-left:auto;font-size:11px;color:#67768a}
+.slotList{min-height:260px;border-radius:8px;display:flex;flex-direction:column;gap:6px;padding-bottom:30px}
+.slotList.dragover{outline:2px dashed var(--blue);outline-offset:2px}
+.emptyHint{font-size:12px;color:#92a0b3;text-align:center;padding:24px 8px;border:1.5px dashed #c3cddc;border-radius:8px}
+.card{background:#fff;border-radius:9px;padding:8px 9px;box-shadow:0 1px 2px rgba(16,33,58,.12);cursor:grab;position:relative;border-left:4px solid transparent}
+.card:active{cursor:grabbing}
+.card.drop-before{box-shadow:0 -3px 0 0 var(--blue),0 1px 2px rgba(16,33,58,.12)}
+.card .top{display:flex;align-items:center;gap:7px}
+.slotNum{background:var(--navy);color:#fff;font-weight:800;font-size:12px;min-width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.card .nm{font-weight:700;font-size:13.5px;color:#13243a;flex:1;line-height:1.2}
+.menuBtn{background:none;border:none;color:#8a97a8;font-size:16px;padding:2px 5px;border-radius:5px;flex-shrink:0}
+.menuBtn:hover{background:#eef1f5;color:var(--navy)}
+.card .meta{font-size:11.5px;color:#5d6b7e;margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.chip{font-size:10px;font-weight:700;padding:1.5px 6px;border-radius:20px}
+.chip.y27{background:#e7f0fb;color:#0a4a8f}
+.chip.y28{background:#fdf3d7;color:#8a6d00}
+.chip.commit{background:#fdeaea;color:#b03a3a}
+.chip.notes{background:#e3f4e8;color:#1e7d43}
+.natrank{font-weight:700;color:var(--navy)}
+.card.c2028{border-left-color:var(--gold)}
+.card.c2027{border-left-color:var(--blue)}
+.card.writein{border-left-color:#8d6fc7}
+#pool{width:330px;flex-shrink:0;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#pool .poolHead{padding:12px 14px 8px;border-bottom:1px solid var(--line)}
+#pool h2{font-size:14px;color:var(--navy);margin-bottom:8px;display:flex;align-items:center}
+#pool h2 .pc{margin-left:auto;font-size:11px;color:#67768a;font-weight:500}
+.filters{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.fchip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 10px;font-size:11.5px;font-weight:600;color:#5d6b7e}
+.fchip.active{background:var(--navy);border-color:var(--navy);color:#fff}
+#poolList{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+#poolList.dragover{background:#fdf6e3}
+#poolFoot{padding:10px 12px;border-top:1px solid var(--line)}
+#overlay{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:40}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:94vw;background:#fff;z-index:50;box-shadow:-12px 0 40px rgba(0,0,0,.25);display:flex;flex-direction:column}
+#drawer .dhead{background:var(--navy);color:#fff;padding:16px 18px}
+#drawer .dhead h3{font-size:17px}
+#drawer .dhead .dm{font-size:12px;color:#9fb6d0;margin-top:3px}
+#drawer .dhead a{color:var(--gold);font-size:12px}
+#dbody{flex:1;overflow-y:auto;padding:14px 18px}
+.noteItem{background:#f4f6fa;border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.noteItem .na{font-size:12px;font-weight:700;color:var(--navy);display:flex;gap:8px;align-items:center}
+.noteItem .nd{font-size:10.5px;color:#8a97a8;font-weight:400;margin-left:auto}
+.noteItem .nc{font-size:13px;margin-top:5px;white-space:pre-wrap;line-height:1.45}
+.noteDel{background:none;border:none;color:#b03a3a;font-size:10.5px;padding:0;margin-top:6px}
+#dfoot{border-top:1px solid var(--line);padding:12px 18px}
+#dfoot textarea{height:74px;resize:vertical}
+.drow{display:flex;gap:8px;margin-top:8px}
+.btnNavy{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13.5px;font-weight:600}
+.btnNavy:hover{background:var(--navy2)}
+.btnLight{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:13.5px;color:#445060}
+.closeX{position:absolute;top:12px;right:14px;background:none;border:none;color:#cfdcec;font-size:20px}
+#modal{position:fixed;inset:0;background:rgba(10,20,35,.5);z-index:60;display:flex;align-items:center;justify-content:center}
+.modalCard{background:#fff;border-radius:14px;width:430px;max-width:94vw;padding:22px 24px;max-height:90vh;overflow-y:auto}
+.modalCard h3{color:var(--navy);font-size:16px;margin-bottom:4px}
+.modalCard .sub{font-size:12.5px;color:#67768a;margin-bottom:10px}
+.modalCard label{font-size:12px;font-weight:600;color:#445060;display:block;margin:10px 0 4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#fmenu{position:fixed;z-index:70;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:5px;min-width:170px}
+#fmenu button{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 11px;font-size:13px;border-radius:7px;color:#1c2733}
+#fmenu button:hover{background:#eef3fa;color:var(--navy)}
+#fmenu .danger{color:#b03a3a}
+#fmenu .sep{height:1px;background:var(--line);margin:4px 2px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#13243a;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:80;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+@media (max-width:900px){#pool{width:270px}}
+</style>
+</head>
+<body>
+
+<div id="authView">
+  <div class="authCard">
+    <div class="ylogo">Y</div>
+    <h1>BYU Basketball Recruiting Board</h1>
+    <div class="sub">Coaching staff access only</div>
+    <div id="loginForm">
+      <label>Email</label><input id="liEmail" type="email" autocomplete="username">
+      <label>Password</label><input id="liPass" type="password" autocomplete="current-password">
+      <button class="btnPrimary" id="btnLogin">Sign in</button>
+      <button class="authToggle" id="toSignup">First time? Create your coach account</button>
+    </div>
+    <div id="signupForm" class="hidden">
+      <label>Full name</label><input id="suName" placeholder="Coach name">
+      <label>Email</label><input id="suEmail" type="email">
+      <label>Password (8+ characters)</label><input id="suPass" type="password">
+      <label>Staff access code</label><input id="suCode" placeholder="Provided by program admin">
+      <button class="btnPrimary" id="btnSignup">Create account</button>
+      <button class="authToggle" id="toLogin">Back to sign in</button>
+    </div>
+    <div class="err" id="authErr"></div>
+  </div>
+</div>
+
+<div id="appView" class="hidden">
+  <header>
+    <div class="ylogo">Y</div>
+    <div><h1>BYU Basketball Recruiting Board</h1><div class="sub2">High school recruiting &middot; 247Sports Top150 rankings</div></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="main">Main Board</button>
+      <button class="tab" data-tab="2027">2027 Class</button>
+      <button class="tab" data-tab="2028">2028 Class</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="userbox"><b id="meName"></b><span id="meEmail"></span></div>
+    <button class="btnGhost" id="btnLogout">Sign out</button>
+  </header>
+  <div id="main">
+    <div id="boardWrap">
+      <div id="boardBar">
+        <span id="boardTitle"></span>
+        <span id="boardHint">Drag players from the pool into ranked position slots. Slot 1 = top priority.</span>
+        <span class="spacer"></span>
+        <button class="btnSmall" id="btnStaffNotes">Staff notes</button>
+      </div>
+      <div id="columns"></div>
+    </div>
+    <div id="pool">
+      <div class="poolHead">
+        <h2>Player Pool <span class="pc" id="poolCount"></span></h2>
+        <input id="poolSearch" placeholder="Search name or school...">
+        <div class="filters" id="classFilters"></div>
+        <div class="filters" id="posFilters"></div>
+      </div>
+      <div id="poolList"></div>
+      <div id="poolFoot"><button class="btnNavy" style="width:100%" id="btnWriteIn">+ Write in a player</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay" class="hidden"></div>
+<div id="drawer" class="hidden">
+  <div class="dhead" style="position:relative">
+    <button class="closeX" id="drawerClose">&times;</button>
+    <h3 id="dTitle"></h3>
+    <div class="dm" id="dMeta"></div>
+  </div>
+  <div id="dbody"></div>
+  <div id="dfoot">
+    <textarea id="noteText" placeholder="Add a note for the staff..."></textarea>
+    <div class="drow"><button class="btnNavy" id="btnPostNote">Post note</button></div>
+  </div>
+</div>
+
+<div id="modal" class="hidden">
+  <div class="modalCard">
+    <h3>Write in a player</h3>
+    <div class="sub">For prospects not in the 247Sports rankings. Visible to the whole staff.</div>
+    <label>Player name *</label><input id="wiName">
+    <div class="grid2">
+      <div><label>Class *</label><select id="wiClass"><option value="2027">2027</option><option value="2028">2028</option></select></div>
+      <div><label>Position *</label><select id="wiPos"><option>PG</option><option>SG</option><option>CG</option><option>SF</option><option>PF</option><option>C</option></select></div>
+    </div>
+    <div class="grid2">
+      <div><label>Height</label><input id="wiHt" placeholder="6-5"></div>
+      <div><label>Weight (lbs)</label><input id="wiWt" type="number"></div>
+    </div>
+    <label>School</label><input id="wiSchool">
+    <label>Hometown</label><input id="wiTown" placeholder="City, ST">
+    <div class="drow" style="margin-top:16px">
+      <button class="btnNavy" id="wiSave">Add player</button>
+      <button class="btnLight" id="wiCancel">Cancel</button>
+    </div>
+    <div class="err" id="wiErr" style="color:#c0392b;font-size:13px;margin-top:8px"></div>
+  </div>
+</div>
+
+<div id="fmenu" class="hidden"></div>
+
+<script>
+var SB_URL='https://erfnpjtqunbquakgbfah.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyZm5wanRxdW5icXVha2diZmFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjMxNTYsImV4cCI6MjA5NDUzOTE1Nn0.2ObhmeCY4jq7VyNXAlB2OeGaph_tT8rBYLdogBRzG98';
+var POSITIONS=['PG','SG','SF','PF','C'];
+var POSNAMES={PG:'Point Guard',SG:'Shooting Guard',SF:'Small Forward',PF:'Power Forward',C:'Center'};
+var sb=window.supabase.createClient(SB_URL,SB_KEY);
+var ME=null, players=[], slots=[], notes=[], tab='main';
+var poolSearch='', poolPos='ALL', poolClass='ALL';
+var drawerCtx=null, rtStarted=false, reloadTimer=null;
+
+function esc(t){if(t==null)return '';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function byId(id){return document.getElementById(id);}
+function toast(msg){var t=document.createElement('div');t.id='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove();},2600);}
+
+function setSession(session){
+  ME=session?session.user:null;
+  byId('authView').classList.toggle('hidden',!!ME);
+  byId('appView').classList.toggle('hidden',!ME);
+  if(ME){
+    var nm=(ME.user_metadata&&ME.user_metadata.name)||'';
+    byId('meName').textContent=nm||'Coach';
+    byId('meEmail').textContent=ME.email;
+    startRealtime();
+    loadData();
+  }
+}
+sb.auth.getSession().then(function(r){setSession(r.data.session);});
+sb.auth.onAuthStateChange(function(ev,session){if(ev==='SIGNED_IN'||ev==='SIGNED_OUT'||ev==='TOKEN_REFRESHED'){setSession(session);}});
+
+byId('btnLogin').onclick=async function(){
+  byId('authErr').textContent='';
+  var r=await sb.auth.signInWithPassword({email:byId('liEmail').value.trim(),password:byId('liPass').value});
+  if(r.error)byId('authErr').textContent=r.error.message;
+};
+byId('liPass').addEventListener('keydown',function(e){if(e.key==='Enter')byId('btnLogin').click();});
+byId('toSignup').onclick=function(){byId('loginForm').classList.add('hidden');byId('signupForm').classList.remove('hidden');byId('authErr').textContent='';};
+byId('toLogin').onclick=function(){byId('signupForm').classList.add('hidden');byId('loginForm').classList.remove('hidden');byId('authErr').textContent='';};
+byId('btnSignup').onclick=async function(){
+  byId('authErr').textContent='';
+  var email=byId('suEmail').value.trim(), pass=byId('suPass').value;
+  try{
+    var resp=await fetch(SB_URL+'/functions/v1/create-coach',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY,'apikey':SB_KEY},body:JSON.stringify({email:email,password:pass,name:byId('suName').value.trim(),access_code:byId('suCode').value.trim()})});
+    var j=await resp.json();
+    if(!resp.ok){byId('authErr').textContent=j.error||'Could not create account';return;}
+    var r=await sb.auth.signInWithPassword({email:email,password:pass});
+    if(r.error)byId('authErr').textContent=r.error.message;
+  }catch(e){byId('authErr').textContent='Network error: '+e;}
+};
+byId('btnLogout').onclick=function(){sb.auth.signOut();};
+
+async function loadData(){
+  var r=await Promise.all([
+    sb.from('players').select('*'),
+    sb.from('board_slots').select('*'),
+    sb.from('notes').select('*').order('created_at',{ascending:false})
+  ]);
+  if(r[0].data)players=r[0].data;
+  if(r[1].data)slots=r[1].data;
+  if(r[2].data)notes=r[2].data;
+  render();
+}
+function startRealtime(){
+  if(rtStarted)return; rtStarted=true;
+  sb.channel('db-changes').on('postgres_changes',{event:'*',schema:'public'},function(){
+    clearTimeout(reloadTimer); reloadTimer=setTimeout(loadData,350);
+  }).subscribe();
+}
+function playerById(id){for(var i=0;i<players.length;i++)if(players[i].id===id)return players[i];return null;}
+function noteCount(pid){var n=0;for(var i=0;i<notes.length;i++)if(notes[i].player_id===pid)n++;return n;}
+function columnIds(board,pos){
+  return slots.filter(function(s){return s.board===board&&s.position===pos;})
+    .sort(function(a,b){return a.slot_order-b.slot_order;})
+    .map(function(s){return s.player_id;});
+}
+function slottedSet(board){var st={};slots.forEach(function(s){if(s.board===board)st[s.player_id]=true;});return st;}
+function classScope(){return tab==='main'?[2027,2028]:[parseInt(tab,10)];}
+
+function render(){renderBoard();renderPool();renderDrawerIfOpen();}
+
+function cardHTML(p,slotIdx){
+  var cls=p.is_writein?'writein':(p.class_year===2027?'c2027':'c2028');
+  var h='<div class="card '+cls+'" draggable="true" data-pid="'+p.id+'">';
+  h+='<div class="top">';
+  if(slotIdx!=null)h+='<span class="slotNum">'+(slotIdx+1)+'</span>';
+  h+='<span class="nm">'+esc(p.name)+'</span>';
+  h+='<button class="menuBtn" data-menu="'+p.id+'" title="Actions">&#8942;</button>';
+  h+='</div><div class="meta">';
+  h+='<span class="natrank">'+(p.is_writein?'Write-in':'#'+p.rank)+'</span>';
+  h+='<span class="chip '+(p.class_year===2027?'y27':'y28')+'">'+p.class_year+'</span>';
+  h+='<span>'+esc(p.position)+(p.height?' &middot; '+esc(p.height):'')+(p.weight?' / '+p.weight:'')+'</span>';
+  if(p.rating)h+='<span>Rating '+p.rating+'</span>';
+  h+='</div><div class="meta">';
+  if(p.school)h+='<span>'+esc(p.school)+(p.city_state?' ('+esc(p.city_state)+')':'')+'</span>';
+  if(p.committed_to)h+='<span class="chip commit">Committed: '+esc(p.committed_to)+'</span>';
+  var nc=noteCount(p.id);
+  if(nc)h+='<span class="chip notes">'+nc+' note'+(nc>1?'s':'')+'</span>';
+  h+='</div></div>';
+  return h;
+}
+
+function renderBoard(){
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
+  byId('boardTitle').textContent=tab==='main'?'Main Board - All Classes (2027 + 2028)':tab+' Class Board';
+  var wrap=byId('columns');wrap.innerHTML='';
+  POSITIONS.forEach(function(pos){
+    var col=document.createElement('div');col.className='col';
+    var ids=columnIds(tab,pos);
+    var head='<div class="colHead"><span class="pos">'+pos+'</span><span class="posName">'+POSNAMES[pos]+'</span><span class="cnt">'+ids.length+'</span></div>';
+    col.innerHTML=head;
+    var list=document.createElement('div');list.className='slotList';list.dataset.pos=pos;
+    if(!ids.length)list.innerHTML='<div class="emptyHint">Drop players here<br>to rank '+pos+' targets</div>';
+    ids.forEach(function(pid,i){var p=playerById(pid);if(p)list.insertAdjacentHTML('beforeend',cardHTML(p,i));});
+    attachListDnD(list,pos);
+    col.appendChild(list);
+    wrap.appendChild(col);
+  });
+  attachCardEvents(wrap);
+}
+
+function poolPlayers(){
+  var st=slottedSet(tab), scope=classScope(), q=poolSearch.toLowerCase();
+  var arr=players.filter(function(p){
+    if(st[p.id])return false;
+    if(scope.indexOf(p.class_year)<0)return false;
+    if(tab==='main'&&poolClass!=='ALL'&&String(p.class_year)!==poolClass)return false;
+    if(poolPos!=='ALL'&&p.position!==poolPos)return false;
+    if(q&&((p.name||'').toLowerCase().indexOf(q)<0)&&((p.school||'').toLowerCase().indexOf(q)<0))return false;
+    return true;
+  });
+  arr.sort(function(a,b){
+    if(!!a.is_writein!==!!b.is_writein)return a.is_writein?1:-1;
+    if(a.is_writein)return (a.name||'').localeCompare(b.name||'');
+    if((b.rating||0)!==(a.rating||0))return (b.rating||0)-(a.rating||0);
+    if(a.rank!==b.rank)return a.rank-b.rank;
+    return a.class_year-b.class_year;
+  });
+  return arr;
+}
+
+function renderPool(){
+  var cf=byId('classFilters');
+  if(tab==='main'){
+    cf.style.display='flex';
+    cf.innerHTML=['ALL','2027','2028'].map(function(c){return '<button class="fchip'+(poolClass===c?' active':'')+'" data-cf="'+c+'">'+(c==='ALL'?'Both classes':c)+'</button>';}).join('');
+    cf.querySelectorAll('button').forEach(function(b){b.onclick=function(){poolClass=b.dataset.cf;renderPool();};});
+  } else cf.style.display='none';
+  var pf=byId('posFilters');
+  pf.innerHTML=['ALL','PG','SG','CG','SF','PF','C'].map(function(c){return '<button class="fchip'+(poolPos===c?' active':'')+'" data-pf="'+c+'">'+c+'</button>';}).join('');
+  pf.querySelectorAll('button').forEach(function(b){b.onclick=function(){poolPos=b.dataset.pf;renderPool();};});
+  var arr=poolPlayers();
+  byId('poolCount').textContent=arr.length+' available';
+  var list=byId('poolList');list.innerHTML='';
+  arr.forEach(function(p){list.insertAdjacentHTML('beforeend',cardHTML(p,null));});
+  attachCardEvents(list);
+}
+
+var dragPid=null;
+function attachCardEvents(container){
+  container.querySelectorAll('.card').forEach(function(card){
+    card.addEventListener('dragstart',function(e){dragPid=card.dataset.pid;e.dataTransfer.setData('text/plain',card.dataset.pid);e.dataTransfer.effectAllowed='move';});
+    card.addEventListener('dragend',function(){dragPid=null;clearDropMarks();});
+    card.addEventListener('click',function(e){
+      if(e.target.closest('.menuBtn')){showMenu(e.target.closest('.menuBtn'),card.dataset.pid);e.stopPropagation();return;}
+      openPlayerDrawer(card.dataset.pid);
+    });
+  });
+}
+function clearDropMarks(){
+  document.querySelectorAll('.drop-before').forEach(function(el){el.classList.remove('drop-before');});
+  document.querySelectorAll('.dragover').forEach(function(el){el.classList.remove('dragover');});
+}
+function attachListDnD(list,pos){
+  list.addEventListener('dragover',function(e){
+    e.preventDefault();e.dataTransfer.dropEffect='move';
+    clearDropMarks();list.classList.add('dragover');
+    var cards=Array.prototype.slice.call(list.querySelectorAll('.card'));
+    var idx=cards.length;
+    for(var i=0;i<cards.length;i++){var r=cards[i].getBoundingClientRect();if(e.clientY<r.top+r.height/2){idx=i;break;}}
+    if(idx<cards.length)cards[idx].classList.add('drop-before');
+    list.dataset.dropIdx=idx;
+  });
+  list.addEventListener('dragleave',function(e){if(!list.contains(e.relatedTarget)){clearDropMarks();}});
+  list.addEventListener('drop',function(e){
+    e.preventDefault();
+    var pid=e.dataTransfer.getData('text/plain')||dragPid;
+    var idx=parseInt(list.dataset.dropIdx||'9999',10);
+    clearDropMarks();
+    if(pid)placePlayer(pid,pos,idx);
+  });
+}
+byId('poolList').addEventListener('dragover',function(e){e.preventDefault();byId('poolList').classList.add('dragover');});
+byId('poolList').addEventListener('dragleave',function(e){if(!byId('poolList').contains(e.relatedTarget))byId('poolList').classList.remove('dragover');});
+byId('poolList').addEventListener('drop',function(e){
+  e.preventDefault();byId('poolList').classList.remove('dragover');
+  var pid=e.dataTransfer.getData('text/plain')||dragPid;
+  if(pid)removeFromBoard(pid);
+});
+
+async function persistColumn(board,pos){
+  var ids=columnIds(board,pos);
+  var rows=ids.map(function(pid,i){return {board:board,position:pos,player_id:pid,slot_order:i+1,updated_by:ME?ME.email:null,updated_at:new Date().toISOString()};});
+  if(rows.length){var r=await sb.from('board_slots').upsert(rows,{onConflict:'board,player_id'});if(r.error){toast('Save failed: '+r.error.message);loadData();}}
+}
+async function placePlayer(pid,pos,idx){
+  var prev=null;
+  slots.forEach(function(s){if(s.board===tab&&s.player_id===pid)prev=s;});
+  var prevPos=prev?prev.position:null;
+  if(prevPos===pos){
+    var ids=columnIds(tab,pos);var cur=ids.indexOf(pid);
+    ids.splice(cur,1);
+    if(idx>cur)idx--;
+    if(idx>ids.length)idx=ids.length;
+    ids.splice(idx,0,pid);
+    slots=slots.filter(function(s){return !(s.board===tab&&s.position===pos);});
+    ids.forEach(function(id,i){slots.push({board:tab,position:pos,player_id:id,slot_order:i+1});});
+    render();
+    await persistColumn(tab,pos);
+  }else{
+    var ids2=columnIds(tab,pos);
+    if(idx>ids2.length)idx=ids2.length;
+    slots=slots.filter(function(s){return !(s.board===tab&&s.player_id===pid);});
+    ids2=columnIds(tab,pos);
+    ids2.splice(idx,0,pid);
+    slots=slots.filter(function(s){return !(s.board===tab&&s.position===pos);});
+    ids2.forEach(function(id,i){slots.push({board:tab,position:pos,player_id:id,slot_order:i+1});});
+    if(prevPos){
+      var oldIds=columnIds(tab,prevPos);
+      slots=slots.filter(function(s){return !(s.board===tab&&s.position===prevPos);});
+      oldIds.forEach(function(id,i){slots.push({board:tab,position:prevPos,player_id:id,slot_order:i+1});});
+    }
+    render();
+    await persistColumn(tab,pos);
+    if(prevPos)await persistColumn(tab,prevPos);
+  }
+}
+async function removeFromBoard(pid){
+  var prev=null;
+  slots.forEach(function(s){if(s.board===tab&&s.player_id===pid)prev=s;});
+  if(!prev)return;
+  var prevPos=prev.position;
+  slots=slots.filter(function(s){return !(s.board===tab&&s.player_id===pid);});
+  render();
+  var r=await sb.from('board_slots').delete().match({board:tab,player_id:pid});
+  if(r.error){toast('Remove failed: '+r.error.message);}
+  await persistColumn(tab,prevPos);
+}
+
+function showMenu(anchor,pid){
+  var p=playerById(pid);if(!p)return;
+  var slottedHere=null;
+  slots.forEach(function(s){if(s.board===tab&&s.player_id===pid)slottedHere=s;});
+  var m=byId('fmenu');m.innerHTML='';
+  function add(label,fn,cls){var b=document.createElement('button');if(cls)b.className=cls;b.textContent=label;b.onclick=function(){hideMenu();fn();};m.appendChild(b);}
+  function sep(){var d=document.createElement('div');d.className='sep';m.appendChild(d);}
+  if(slottedHere){
+    var ids=columnIds(tab,slottedHere.position);var i=ids.indexOf(pid);
+    if(i>0)add('Move up',function(){placePlayer(pid,slottedHere.position,i-1);});
+    if(i<ids.length-1)add('Move down',function(){placePlayer(pid,slottedHere.position,i+2);});
+    POSITIONS.forEach(function(pos){if(pos!==slottedHere.position)add('Move to '+pos,function(){placePlayer(pid,pos,9999);});});
+    sep();
+    add('Remove from board',function(){removeFromBoard(pid);},'danger');
+  }else{
+    POSITIONS.forEach(function(pos){add('Add to '+pos,function(){placePlayer(pid,pos,9999);});});
+  }
+  sep();
+  add('View / add notes',function(){openPlayerDrawer(pid);});
+  if(p.is_writein)add('Delete write-in player',async function(){
+    if(!confirm('Delete '+p.name+' and all their notes?'))return;
+    var r=await sb.from('players').delete().eq('id',pid);
+    if(r.error)toast('Delete failed: '+r.error.message);else loadData();
+  },'danger');
+  var r=anchor.getBoundingClientRect();
+  m.classList.remove('hidden');
+  var top=r.bottom+4, left=Math.min(r.left,window.innerWidth-190);
+  if(top+m.offsetHeight>window.innerHeight)top=Math.max(8,r.top-m.offsetHeight-4);
+  m.style.top=top+'px';m.style.left=left+'px';
+}
+function hideMenu(){byId('fmenu').classList.add('hidden');}
+document.addEventListener('click',function(e){if(!e.target.closest('#fmenu')&&!e.target.closest('.menuBtn'))hideMenu();});
+
+function openPlayerDrawer(pid){drawerCtx={type:'player',pid:pid};showDrawer();}
+byId('btnStaffNotes').onclick=function(){drawerCtx={type:'staff',board:tab};showDrawer();};
+function showDrawer(){byId('overlay').classList.remove('hidden');byId('drawer').classList.remove('hidden');byId('noteText').value='';renderDrawerIfOpen();}
+function closeDrawer(){drawerCtx=null;byId('overlay').classList.add('hidden');byId('drawer').classList.add('hidden');}
+byId('overlay').onclick=closeDrawer;
+byId('drawerClose').onclick=closeDrawer;
+function renderDrawerIfOpen(){
+  if(!drawerCtx)return;
+  var body=byId('dbody');
+  if(drawerCtx.type==='player'){
+    var p=playerById(drawerCtx.pid);
+    if(!p){closeDrawer();return;}
+    byId('dTitle').textContent=p.name;
+    var m=(p.is_writein?'Write-in':'247 Rank #'+p.rank)+' &middot; '+p.class_year+' &middot; '+esc(p.position);
+    if(p.height)m+=' &middot; '+esc(p.height)+(p.weight?' / '+p.weight+' lbs':'');
+    if(p.rating)m+=' &middot; Rating '+p.rating;
+    m+='<br>'+esc(p.school||'')+(p.city_state?' ('+esc(p.city_state)+')':'');
+    if(p.committed_to)m+=' &middot; <b>Committed to '+esc(p.committed_to)+'</b>';
+    if(p.profile_url)m+=' &middot; <a href="'+esc(p.profile_url)+'" target="_blank" rel="noopener">247 profile</a>';
+    byId('dMeta').innerHTML=m;
+    body.innerHTML=notesHTML(notes.filter(function(n){return n.player_id===p.id;}));
+  }else{
+    byId('dTitle').textContent='Staff Notes';
+    byId('dMeta').textContent=(drawerCtx.board==='main'?'Main board':drawerCtx.board+' class board')+' - general discussion, visible to all coaches';
+    body.innerHTML=notesHTML(notes.filter(function(n){return !n.player_id&&n.board===drawerCtx.board;}));
+  }
+  body.querySelectorAll('.noteDel').forEach(function(b){
+    b.onclick=async function(){
+      var r=await sb.from('notes').delete().eq('id',b.dataset.nid);
+      if(r.error)toast('Could not delete note');else loadData();
+    };
+  });
+}
+function notesHTML(list){
+  if(!list.length)return '<div style="color:#8a97a8;font-size:13px;text-align:center;padding:30px 0">No notes yet. Be the first to add one.</div>';
+  return list.map(function(n){
+    var who=esc(n.author_name||n.author_email);
+    var d=new Date(n.created_at);
+    var ds=(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear()+' '+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    var del=(ME&&n.author_id===ME.id)?'<button class="noteDel" data-nid="'+n.id+'">delete</button>':'';
+    return '<div class="noteItem"><div class="na">'+who+'<span class="nd">'+ds+'</span></div><div class="nc">'+esc(n.content)+'</div>'+del+'</div>';
+  }).join('');
+}
+byId('btnPostNote').onclick=async function(){
+  var txt=byId('noteText').value.trim();
+  if(!txt||!drawerCtx)return;
+  var row={content:txt,author_email:ME.email,author_name:(ME.user_metadata&&ME.user_metadata.name)||null};
+  if(drawerCtx.type==='player')row.player_id=drawerCtx.pid;else row.board=drawerCtx.board;
+  var r=await sb.from('notes').insert(row);
+  if(r.error){toast('Could not post note: '+r.error.message);return;}
+  byId('noteText').value='';
+  loadData();
+};
+
+byId('btnWriteIn').onclick=function(){
+  byId('wiErr').textContent='';byId('wiName').value='';byId('wiHt').value='';byId('wiWt').value='';byId('wiSchool').value='';byId('wiTown').value='';
+  byId('wiClass').value=tab==='2028'?'2028':'2027';
+  byId('modal').classList.remove('hidden');
+};
+byId('wiCancel').onclick=function(){byId('modal').classList.add('hidden');};
+byId('wiSave').onclick=async function(){
+  var name=byId('wiName').value.trim();
+  if(!name){byId('wiErr').textContent='Player name is required';return;}
+  var row={class_year:parseInt(byId('wiClass').value,10),name:name,position:byId('wiPos').value,height:byId('wiHt').value.trim()||null,weight:byId('wiWt').value?parseInt(byId('wiWt').value,10):null,school:byId('wiSchool').value.trim()||null,city_state:byId('wiTown').value.trim()||null,is_writein:true,created_by:ME.id};
+  var r=await sb.from('players').insert(row);
+  if(r.error){byId('wiErr').textContent=r.error.message;return;}
+  byId('modal').classList.add('hidden');
+  toast(name+' added to the pool');
+  loadData();
+};
+
+document.querySelectorAll('.tab').forEach(function(b){
+  b.onclick=function(){tab=b.dataset.tab;poolClass='ALL';poolPos='ALL';byId('poolSearch').value='';poolSearch='';render();};
+});
+byId('poolSearch').addEventListener('input',function(e){poolSearch=e.target.value;renderPool();});
+</script>
+</body>
+</html>
