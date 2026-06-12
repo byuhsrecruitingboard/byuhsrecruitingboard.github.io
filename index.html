@@ -225,6 +225,25 @@ var ME=null, players=[], slots=[], notes=[], tab='main';
 var poolSearch='', poolPos='ALL', poolClass='ALL';
 var drawerCtx=null, rtStarted=false, reloadTimer=null;
 var coaches=[], picks=[], dragSrcCoach=null;
+var STAFF_BOARDS=[
+  {email:'kevin.young@byu.edu',label:'Kevin Young'},
+  {email:'timothy.fanning@byu.edu',label:'Tim Fanning'},
+  {email:'will.voigt@byu.edu',label:'Will Voigt'},
+  {email:'brandon.dunson@byu.edu',label:'Brandon Dunson'},
+  {email:'christopher.burgess@byu.edu',label:'Chris Burgess'},
+  {email:'john.linehan@byu.edu',label:'John Linehan'},
+  {email:'jordan.brady2@byu.edu',label:'Jordan Brady'},
+  {email:'justin.young@byu.edu',label:'Justin Young'}
+];
+function boardCoaches(){
+  var out=[];
+  STAFF_BOARDS.forEach(function(b){
+    for(var i=0;i<coaches.length;i++){
+      if(coaches[i].email===b.email){out.push({id:coaches[i].id,name:b.label});return;}
+    }
+  });
+  return out;
+}
 
 function esc(t){if(t==null)return '';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function byId(id){return document.getElementById(id);}
@@ -349,9 +368,9 @@ function renderStaffBoard(){
   byId('boardTitle').textContent='Individual Staff Boards';
   byId('boardHint').textContent='Each coach has their own pool, visible to everyone. The same player can be on multiple boards.';
   var wrap=byId('columns');wrap.innerHTML='';
-  wrap.style.gridTemplateColumns='repeat(3,minmax(250px,1fr))';
-  wrap.style.minWidth='780px';
-  coaches.forEach(function(c){
+  wrap.style.gridTemplateColumns='repeat(4,minmax(235px,1fr))';
+  wrap.style.minWidth='960px';
+  boardCoaches().forEach(function(c){
     var col=document.createElement('div');col.className='col';
     var ids=coachPicks(c.id);
     col.innerHTML='<div class="colHead"><span class="pos">'+esc(c.name)+'</span><span class="cnt">'+ids.length+'</span></div>';
@@ -523,7 +542,7 @@ function showMenu(anchor,pid){
   if(tab==='staff'){
     var srcCard=anchor.closest('.card');
     var srcCoach=srcCard?(srcCard.dataset.coach||null):null;
-    coaches.forEach(function(c){
+    boardCoaches().forEach(function(c){
       var has=picks.some(function(k){return k.coach_id===c.id&&k.player_id===pid;});
       if(!has)add('Add to '+c.name,function(){addPick(c.id,pid);});
     });
