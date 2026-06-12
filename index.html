@@ -105,7 +105,7 @@ header .sub2{font-size:11px;color:#9fb6d0}
 .modalCard .sub{font-size:12.5px;color:#67768a;margin-bottom:10px}
 .modalCard label{font-size:12px;font-weight:600;color:#445060;display:block;margin:10px 0 4px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#fmenu{position:fixed;z-index:70;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:5px;min-width:170px}
+#fmenu{position:fixed;z-index:70;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:5px;min-width:170px;max-height:70vh;overflow-y:auto}
 #fmenu button{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 11px;font-size:13px;border-radius:7px;color:#1c2733}
 #fmenu button:hover{background:#eef3fa;color:var(--navy)}
 #fmenu .danger{color:#b03a3a}
@@ -142,11 +142,12 @@ header .sub2{font-size:11px;color:#9fb6d0}
 <div id="appView" class="hidden">
   <header>
     <div class="ylogo">Y</div>
-    <div><h1>BYU Basketball Recruiting Board</h1><div class="sub2">High school recruiting &middot; 247Sports Top150 rankings</div></div>
+    <div><h1>BYU Basketball Recruiting Board</h1><div class="sub2">High school recruiting</div></div>
     <div class="tabs">
       <button class="tab active" data-tab="main">Main Board</button>
       <button class="tab" data-tab="2027">2027 Class</button>
       <button class="tab" data-tab="2028">2028 Class</button>
+      <button class="tab" data-tab="staff">Individual Staff Boards</button>
     </div>
     <div class="spacer"></div>
     <div class="userbox"><b id="meName"></b><span id="meEmail"></span></div>
@@ -223,6 +224,7 @@ var sb=window.supabase.createClient(SB_URL,SB_KEY);
 var ME=null, players=[], slots=[], notes=[], tab='main';
 var poolSearch='', poolPos='ALL', poolClass='ALL';
 var drawerCtx=null, rtStarted=false, reloadTimer=null;
+var coaches=[], picks=[], dragSrcCoach=null;
 
 function esc(t){if(t==null)return '';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function byId(id){return document.getElementById(id);}
@@ -268,11 +270,15 @@ async function loadData(){
   var r=await Promise.all([
     sb.from('players').select('*'),
     sb.from('board_slots').select('*'),
-    sb.from('notes').select('*').order('created_at',{ascending:false})
+    sb.from('notes').select('*').order('created_at',{ascending:false}),
+    sb.from('coaches').select('*').order('name'),
+    sb.from('staff_picks').select('*').order('created_at')
   ]);
   if(r[0].data)players=r[0].data;
   if(r[1].data)slots=r[1].data;
   if(r[2].data)notes=r[2].data;
+  if(r[3].data)coaches=r[3].data;
+  if(r[4].data)picks=r[4].data;
   render();
 }
 function startRealtime(){
@@ -289,13 +295,13 @@ function columnIds(board,pos){
     .map(function(s){return s.player_id;});
 }
 function slottedSet(board){var st={};slots.forEach(function(s){if(s.board===board)st[s.player_id]=true;});return st;}
-function classScope(){return tab==='main'?[2027,2028]:[parseInt(tab,10)];}
+function classScope(){return (tab==='main'||tab==='staff')?[2027,2028]:[parseInt(tab,10)];}
 
-function render(){renderBoard();renderPool();renderDrawerIfOpen();}
+function render(){if(tab==='staff')renderStaffBoard();else renderBoard();renderPool();renderDrawerIfOpen();}
 
-function cardHTML(p,slotIdx){
+function cardHTML(p,slotIdx,coachId){
   var cls=p.is_writein?'writein':(p.class_year===2027?'c2027':'c2028');
-  var h='<div class="card '+cls+'" draggable="true" data-pid="'+p.id+'">';
+  var h='<div class="card '+cls+'" draggable="true" data-pid="'+p.id+'"'+(coachId?' data-coach="'+coachId+'"':'')+'>';
   h+='<div class="top">';
   if(slotIdx!=null)h+='<span class="slotNum">'+(slotIdx+1)+'</span>';
   h+='<span class="nm">'+esc(p.name)+'</span>';
@@ -317,7 +323,9 @@ function cardHTML(p,slotIdx){
 function renderBoard(){
   document.querySelectorAll('.tab').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
   byId('boardTitle').textContent=tab==='main'?'Main Board - All Classes (2027 + 2028)':tab+' Class Board';
+  byId('boardHint').textContent='Drag players from the pool into ranked position slots. Slot 1 = top priority.';
   var wrap=byId('columns');wrap.innerHTML='';
+  wrap.style.gridTemplateColumns='';wrap.style.minWidth='';
   POSITIONS.forEach(function(pos){
     var col=document.createElement('div');col.className='col';
     var ids=columnIds(tab,pos);
@@ -333,8 +341,50 @@ function renderBoard(){
   attachCardEvents(wrap);
 }
 
+function coachPicks(cid){
+  return picks.filter(function(k){return k.coach_id===cid;}).map(function(k){return k.player_id;});
+}
+function renderStaffBoard(){
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
+  byId('boardTitle').textContent='Individual Staff Boards';
+  byId('boardHint').textContent='Each coach has their own pool, visible to everyone. The same player can be on multiple boards.';
+  var wrap=byId('columns');wrap.innerHTML='';
+  wrap.style.gridTemplateColumns='repeat(3,minmax(250px,1fr))';
+  wrap.style.minWidth='780px';
+  coaches.forEach(function(c){
+    var col=document.createElement('div');col.className='col';
+    var ids=coachPicks(c.id);
+    col.innerHTML='<div class="colHead"><span class="pos">'+esc(c.name)+'</span><span class="cnt">'+ids.length+'</span></div>';
+    var list=document.createElement('div');list.className='slotList';
+    if(!ids.length)list.innerHTML='<div class="emptyHint">Drop players here</div>';
+    ids.forEach(function(pid){var p=playerById(pid);if(p)list.insertAdjacentHTML('beforeend',cardHTML(p,null,c.id));});
+    list.addEventListener('dragover',function(e){e.preventDefault();e.dataTransfer.dropEffect='move';clearDropMarks();list.classList.add('dragover');});
+    list.addEventListener('dragleave',function(e){if(!list.contains(e.relatedTarget))clearDropMarks();});
+    list.addEventListener('drop',function(e){
+      e.preventDefault();clearDropMarks();
+      var pid=e.dataTransfer.getData('text/plain')||dragPid;
+      if(pid)addPick(c.id,pid);
+    });
+    col.appendChild(list);
+    wrap.appendChild(col);
+  });
+  attachCardEvents(wrap);
+}
+async function addPick(cid,pid){
+  if(picks.some(function(k){return k.coach_id===cid&&k.player_id===pid;}))return;
+  picks.push({coach_id:cid,player_id:pid,created_at:new Date().toISOString()});
+  render();
+  var r=await sb.from('staff_picks').upsert({coach_id:cid,player_id:pid,added_by:ME?ME.email:null},{onConflict:'coach_id,player_id'});
+  if(r.error){toast('Save failed: '+r.error.message);loadData();}
+}
+async function removePick(cid,pid){
+  picks=picks.filter(function(k){return !(k.coach_id===cid&&k.player_id===pid);});
+  render();
+  var r=await sb.from('staff_picks').delete().match({coach_id:cid,player_id:pid});
+  if(r.error){toast('Remove failed: '+r.error.message);loadData();}
+}
 function poolPlayers(){
-  var st=slottedSet(tab), scope=classScope(), q=poolSearch.toLowerCase();
+  var st=tab==='staff'?{}:slottedSet(tab), scope=classScope(), q=poolSearch.toLowerCase();
   var arr=players.filter(function(p){
     if(st[p.id])return false;
     if(scope.indexOf(p.class_year)<0)return false;
@@ -355,7 +405,7 @@ function poolPlayers(){
 
 function renderPool(){
   var cf=byId('classFilters');
-  if(tab==='main'){
+  if(tab==='main'||tab==='staff'){
     cf.style.display='flex';
     cf.innerHTML=['ALL','2027','2028'].map(function(c){return '<button class="fchip'+(poolClass===c?' active':'')+'" data-cf="'+c+'">'+(c==='ALL'?'Both classes':c)+'</button>';}).join('');
     cf.querySelectorAll('button').forEach(function(b){b.onclick=function(){poolClass=b.dataset.cf;renderPool();};});
@@ -373,8 +423,8 @@ function renderPool(){
 var dragPid=null;
 function attachCardEvents(container){
   container.querySelectorAll('.card').forEach(function(card){
-    card.addEventListener('dragstart',function(e){dragPid=card.dataset.pid;e.dataTransfer.setData('text/plain',card.dataset.pid);e.dataTransfer.effectAllowed='move';});
-    card.addEventListener('dragend',function(){dragPid=null;clearDropMarks();});
+    card.addEventListener('dragstart',function(e){dragPid=card.dataset.pid;dragSrcCoach=card.dataset.coach||null;e.dataTransfer.setData('text/plain',card.dataset.pid);e.dataTransfer.effectAllowed='move';});
+    card.addEventListener('dragend',function(){dragPid=null;dragSrcCoach=null;clearDropMarks();});
     card.addEventListener('click',function(e){
       if(e.target.closest('.menuBtn')){showMenu(e.target.closest('.menuBtn'),card.dataset.pid);e.stopPropagation();return;}
       openPlayerDrawer(card.dataset.pid);
@@ -409,7 +459,9 @@ byId('poolList').addEventListener('dragleave',function(e){if(!byId('poolList').c
 byId('poolList').addEventListener('drop',function(e){
   e.preventDefault();byId('poolList').classList.remove('dragover');
   var pid=e.dataTransfer.getData('text/plain')||dragPid;
-  if(pid)removeFromBoard(pid);
+  if(!pid)return;
+  if(tab==='staff'){if(dragSrcCoach)removePick(dragSrcCoach,pid);}
+  else removeFromBoard(pid);
 });
 
 async function persistColumn(board,pos){
@@ -468,7 +520,15 @@ function showMenu(anchor,pid){
   var m=byId('fmenu');m.innerHTML='';
   function add(label,fn,cls){var b=document.createElement('button');if(cls)b.className=cls;b.textContent=label;b.onclick=function(){hideMenu();fn();};m.appendChild(b);}
   function sep(){var d=document.createElement('div');d.className='sep';m.appendChild(d);}
-  if(slottedHere){
+  if(tab==='staff'){
+    var srcCard=anchor.closest('.card');
+    var srcCoach=srcCard?(srcCard.dataset.coach||null):null;
+    coaches.forEach(function(c){
+      var has=picks.some(function(k){return k.coach_id===c.id&&k.player_id===pid;});
+      if(!has)add('Add to '+c.name,function(){addPick(c.id,pid);});
+    });
+    if(srcCoach){sep();add('Remove from this board',function(){removePick(srcCoach,pid);},'danger');}
+  }else if(slottedHere){
     var ids=columnIds(tab,slottedHere.position);var i=ids.indexOf(pid);
     if(i>0)add('Move up',function(){placePlayer(pid,slottedHere.position,i-1);});
     if(i<ids.length-1)add('Move down',function(){placePlayer(pid,slottedHere.position,i+2);});
