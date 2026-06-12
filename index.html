@@ -164,7 +164,7 @@ header .sub2{font-size:11px;color:#9fb6d0}
     <div class="ylogo">Y</div>
     <div><h1>BYU Basketball Recruiting Board</h1></div>
     <div class="tabs">
-      <button class="tab active" data-tab="main">Main Board</button>
+      <button class="tab active" data-tab="main">Consolidated Board (All Classes)</button>
       <button class="tab" data-tab="2027">2027 Class</button>
       <button class="tab" data-tab="2028">2028 Class</button>
       <button class="tab" data-tab="2627">26-27 Roster Outlook</button>
@@ -324,7 +324,7 @@ function columnIds(board,pos){
     .map(function(s){return s.player_id;});
 }
 function slottedSet(board){var st={};slots.forEach(function(s){if(s.board===board)st[s.player_id]=true;});return st;}
-var TITLES={'main':'Main Board - All Classes (2027 + 2028)','2027':'2027 Class Board','2028':'2028 Class Board','2627':'26-27 Roster Outlook','2728':'27-28 Roster Outlook','2829':'28-29 Roster Outlook','2930':'29-30 Roster Outlook'};
+var TITLES={'main':'Consolidated Board (All Classes)','2027':'2027 Class Board','2028':'2028 Class Board','2627':'26-27 Roster Outlook','2728':'27-28 Roster Outlook','2829':'28-29 Roster Outlook','2930':'29-30 Roster Outlook'};
 var LABELS=['Priority now','Evaluate more','Potential portal recruit','Not an option'];
 var LABEL_CLS={'Priority now':'lp','Evaluate more':'le','Potential portal recruit':'lr','Not an option':'ln'};
 function isRosterTab(){return ['2627','2728','2829','2930'].indexOf(tab)>=0;}
