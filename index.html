@@ -28,8 +28,8 @@ header{background:var(--navy);color:#fff;padding:10px 18px;display:flex;align-it
 header .ylogo{width:34px;height:34px;font-size:18px;background:#fff;color:var(--navy);margin:0}
 header h1{font-size:16px;font-weight:700}
 header .sub2{font-size:11px;color:#9fb6d0}
-.tabs{display:flex;gap:4px;margin-left:30px}
-.tab{background:rgba(255,255,255,.08);color:#cfdcec;border:none;border-radius:8px 8px 0 0;padding:9px 16px;font-size:13.5px;font-weight:600;position:relative;top:10px}
+.tabs{display:flex;gap:4px;margin-left:18px}
+.tab{background:rgba(255,255,255,.08);color:#cfdcec;border:none;border-radius:8px 8px 0 0;padding:9px 9px;font-size:12px;font-weight:600;position:relative;top:10px;white-space:nowrap}
 .tab.active{background:var(--bg);color:var(--navy)}
 .spacer{flex:1}
 .userbox{font-size:12.5px;text-align:right;color:#cfdcec}
@@ -66,6 +66,13 @@ header .sub2{font-size:11px;color:#9fb6d0}
 .chip.y28{background:#fdf3d7;color:#8a6d00}
 .chip.commit{background:#fdeaea;color:#b03a3a}
 .chip.notes{background:#e3f4e8;color:#1e7d43}
+.chip.rost{background:#13243a;color:#fff}
+.chip.lp{background:#1e7d43;color:#fff}
+.chip.le{background:#ffc857;color:#5b4300}
+.chip.lr{background:#0062B8;color:#fff}
+.chip.ln{background:#c0392b;color:#fff}
+.card.roster{border-left-color:#1e7d43}
+.ylogoimg{width:15px;height:15px;vertical-align:-2px;margin-left:5px}
 .natrank{font-weight:700;color:var(--navy)}
 .card.c2028{border-left-color:var(--gold)}
 .card.c2027{border-left-color:var(--blue)}
@@ -160,7 +167,10 @@ header .sub2{font-size:11px;color:#9fb6d0}
       <button class="tab active" data-tab="main">Main Board</button>
       <button class="tab" data-tab="2027">2027 Class</button>
       <button class="tab" data-tab="2028">2028 Class</button>
-      <button class="tab" data-tab="staff">Individual Staff Boards</button>
+      <button class="tab" data-tab="2627">26-27 Roster Outlook</button>
+      <button class="tab" data-tab="2728">27-28 Roster Outlook</button>
+      <button class="tab" data-tab="2829">28-29 Roster Outlook</button>
+      <button class="tab" data-tab="2930">29-30 Roster Outlook</button>
     </div>
     <div class="spacer"></div>
     <div class="userbox"><b id="meName"></b><span id="meEmail"></span></div>
@@ -216,7 +226,7 @@ header .sub2{font-size:11px;color:#9fb6d0}
       <div><label>Height</label><input id="wiHt" placeholder="6-5"></div>
       <div><label>Weight (lbs)</label><input id="wiWt" type="number"></div>
     </div>
-    <label>School</label><input id="wiSchool">
+    <label>School / AAU club</label><input id="wiSchool">
     <label>Hometown</label><input id="wiTown" placeholder="City, ST">
     <div class="drow" style="margin-top:16px">
       <button class="btnNavy" id="wiSave">Add player</button>
@@ -314,20 +324,36 @@ function columnIds(board,pos){
     .map(function(s){return s.player_id;});
 }
 function slottedSet(board){var st={};slots.forEach(function(s){if(s.board===board)st[s.player_id]=true;});return st;}
-function classScope(){return (tab==='main'||tab==='staff')?[2027,2028]:[parseInt(tab,10)];}
+var TITLES={'main':'Main Board - All Classes (2027 + 2028)','2027':'2027 Class Board','2028':'2028 Class Board','2627':'26-27 Roster Outlook','2728':'27-28 Roster Outlook','2829':'28-29 Roster Outlook','2930':'29-30 Roster Outlook'};
+var LABELS=['Priority now','Evaluate more','Potential portal recruit','Not an option'];
+var LABEL_CLS={'Priority now':'lp','Evaluate more':'le','Potential portal recruit':'lr','Not an option':'ln'};
+function isRosterTab(){return ['2627','2728','2829','2930'].indexOf(tab)>=0;}
+function classScope(){return (tab==='2027'||tab==='2028')?[parseInt(tab,10)]:[2027,2028];}
+async function setLabel(pid,l){
+  var r=await sb.from('players').update({label:l}).eq('id',pid);
+  if(r.error)toast('Could not set label: '+r.error.message);
+  loadData();
+}
+async function setOffered(pid,val){
+  var r=await sb.from('players').update({offered:val}).eq('id',pid);
+  if(r.error)toast('Could not update: '+r.error.message);
+  loadData();
+}
 
-function render(){if(tab==='staff')renderStaffBoard();else renderBoard();renderPool();renderDrawerIfOpen();}
+function render(){renderBoard();renderPool();renderDrawerIfOpen();}
 
 function cardHTML(p,slotIdx,coachId){
-  var cls=p.is_writein?'writein':(p.class_year===2027?'c2027':'c2028');
+  var cls=p.is_roster?'roster':(p.is_writein?'writein':(p.class_year===2027?'c2027':'c2028'));
   var h='<div class="card '+cls+'" draggable="true" data-pid="'+p.id+'"'+(coachId?' data-coach="'+coachId+'"':'')+'>';
   h+='<div class="top">';
   if(slotIdx!=null)h+='<span class="slotNum">'+(slotIdx+1)+'</span>';
-  h+='<span class="nm">'+esc(p.name)+'</span>';
+  h+='<span class="nm">'+esc(p.name)+(p.offered?'<img class="ylogoimg" src="https://a.espncdn.com/i/teamlogos/ncaa/500/252.png" title="Scholarship offered" alt="BYU offer">':'')+'</span>';
   h+='<button class="menuBtn" data-menu="'+p.id+'" title="Actions">&#8942;</button>';
   h+='</div><div class="meta">';
-  h+='<span class="natrank">'+(p.is_writein?'Write-in':'#'+p.rank)+'</span>';
-  h+='<span class="chip '+(p.class_year===2027?'y27':'y28')+'">'+p.class_year+'</span>';
+  h+='<span class="natrank">'+(p.is_roster?'Returner':(p.is_writein?'Write-in':'#'+p.rank))+'</span>';
+  if(p.is_roster)h+='<span class="chip rost">BYU Roster</span>';
+  else h+='<span class="chip '+(p.class_year===2027?'y27':'y28')+'">'+p.class_year+'</span>';
+  if(p.label)h+='<span class="chip '+LABEL_CLS[p.label]+'">'+esc(p.label)+'</span>';
   h+='<span>'+esc(p.position)+(p.height?' &middot; '+esc(p.height):'')+(p.weight?' / '+p.weight:'')+'</span>';
   if(p.rating)h+='<span>Rating '+p.rating+'</span>';
   h+='</div><div class="meta">';
@@ -341,8 +367,8 @@ function cardHTML(p,slotIdx,coachId){
 
 function renderBoard(){
   document.querySelectorAll('.tab').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
-  byId('boardTitle').textContent=tab==='main'?'Main Board - All Classes (2027 + 2028)':tab+' Class Board';
-  byId('boardHint').textContent='Drag players from the pool into ranked position slots. Slot 1 = top priority.';
+  byId('boardTitle').textContent=TITLES[tab]||'';
+  byId('boardHint').textContent=isRosterTab()?'Full roster outlook: returners + recruits. Drag players into position slots.':'Drag players from the pool into ranked position slots. Slot 1 = top priority.';
   var wrap=byId('columns');wrap.innerHTML='';
   wrap.style.gridTemplateColumns='';wrap.style.minWidth='';
   POSITIONS.forEach(function(pos){
@@ -403,16 +429,24 @@ async function removePick(cid,pid){
   if(r.error){toast('Remove failed: '+r.error.message);loadData();}
 }
 function poolPlayers(){
-  var st=tab==='staff'?{}:slottedSet(tab), scope=classScope(), q=poolSearch.toLowerCase();
+  var st=slottedSet(tab), scope=classScope(), q=poolSearch.toLowerCase();
   var arr=players.filter(function(p){
     if(st[p.id])return false;
-    if(scope.indexOf(p.class_year)<0)return false;
-    if(tab==='main'&&poolClass!=='ALL'&&String(p.class_year)!==poolClass)return false;
+    if(p.is_roster){
+      if(!isRosterTab())return false;
+      if(poolClass!=='ALL'&&poolClass!=='Roster')return false;
+    }else{
+      if(scope.indexOf(p.class_year)<0)return false;
+      if(poolClass==='Roster')return false;
+      if((tab==='main'||isRosterTab())&&poolClass!=='ALL'&&String(p.class_year)!==poolClass)return false;
+    }
     if(poolPos!=='ALL'&&p.position!==poolPos)return false;
     if(q&&((p.name||'').toLowerCase().indexOf(q)<0)&&((p.school||'').toLowerCase().indexOf(q)<0))return false;
     return true;
   });
   arr.sort(function(a,b){
+    if(!!a.is_roster!==!!b.is_roster)return a.is_roster?-1:1;
+    if(a.is_roster)return (a.name||'').localeCompare(b.name||'');
     if(!!a.is_writein!==!!b.is_writein)return a.is_writein?1:-1;
     if(a.is_writein)return (a.name||'').localeCompare(b.name||'');
     if((b.rating||0)!==(a.rating||0))return (b.rating||0)-(a.rating||0);
@@ -424,9 +458,10 @@ function poolPlayers(){
 
 function renderPool(){
   var cf=byId('classFilters');
-  if(tab==='main'||tab==='staff'){
+  if(tab==='main'||isRosterTab()){
     cf.style.display='flex';
-    cf.innerHTML=['ALL','2027','2028'].map(function(c){return '<button class="fchip'+(poolClass===c?' active':'')+'" data-cf="'+c+'">'+(c==='ALL'?'Both classes':c)+'</button>';}).join('');
+    var copts=isRosterTab()?['ALL','Roster','2027','2028']:['ALL','2027','2028'];
+    cf.innerHTML=copts.map(function(c){return '<button class="fchip'+(poolClass===c?' active':'')+'" data-cf="'+c+'">'+(c==='ALL'?'All':(c==='Roster'?'BYU Roster':c))+'</button>';}).join('');
     cf.querySelectorAll('button').forEach(function(b){b.onclick=function(){poolClass=b.dataset.cf;renderPool();};});
   } else cf.style.display='none';
   var pf=byId('posFilters');
@@ -539,15 +574,7 @@ function showMenu(anchor,pid){
   var m=byId('fmenu');m.innerHTML='';
   function add(label,fn,cls){var b=document.createElement('button');if(cls)b.className=cls;b.textContent=label;b.onclick=function(){hideMenu();fn();};m.appendChild(b);}
   function sep(){var d=document.createElement('div');d.className='sep';m.appendChild(d);}
-  if(tab==='staff'){
-    var srcCard=anchor.closest('.card');
-    var srcCoach=srcCard?(srcCard.dataset.coach||null):null;
-    boardCoaches().forEach(function(c){
-      var has=picks.some(function(k){return k.coach_id===c.id&&k.player_id===pid;});
-      if(!has)add('Add to '+c.name,function(){addPick(c.id,pid);});
-    });
-    if(srcCoach){sep();add('Remove from this board',function(){removePick(srcCoach,pid);},'danger');}
-  }else if(slottedHere){
+  if(slottedHere){
     var ids=columnIds(tab,slottedHere.position);var i=ids.indexOf(pid);
     if(i>0)add('Move up',function(){placePlayer(pid,slottedHere.position,i-1);});
     if(i<ids.length-1)add('Move down',function(){placePlayer(pid,slottedHere.position,i+2);});
@@ -556,6 +583,13 @@ function showMenu(anchor,pid){
     add('Remove from board',function(){removeFromBoard(pid);},'danger');
   }else{
     POSITIONS.forEach(function(pos){add('Add to '+pos,function(){placePlayer(pid,pos,9999);});});
+  }
+  if(!p.is_roster){
+    sep();
+    LABELS.forEach(function(l){
+      add((p.label===l?'✓ ':'')+'Label: '+l,function(){setLabel(pid,p.label===l?null:l);});
+    });
+    add(p.offered?'✓ Offered (click to remove)':'Mark as offered',function(){setOffered(pid,!p.offered);});
   }
   sep();
   add('View / add notes',function(){openPlayerDrawer(pid);});
@@ -591,6 +625,8 @@ function renderDrawerIfOpen(){
     if(p.rating)m+=' &middot; Rating '+p.rating;
     m+='<br>'+esc(p.school||'')+(p.city_state?' ('+esc(p.city_state)+')':'');
     if(p.committed_to)m+=' &middot; <b>Committed to '+esc(p.committed_to)+'</b>';
+    if(p.offered)m+=' &middot; <b>BYU OFFER OUT</b>';
+    if(p.label)m+=' &middot; '+esc(p.label);
     if(p.profile_url)m+=' &middot; <a href="'+esc(p.profile_url)+'" target="_blank" rel="noopener">247 profile</a>';
     byId('dMeta').innerHTML=m;
     body.innerHTML=notesHTML(notes.filter(function(n){return n.player_id===p.id;}));
